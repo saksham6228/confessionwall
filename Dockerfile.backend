@@ -1,0 +1,18 @@
+# =============================================
+#   Dockerfile.backend
+#   Build with: docker build -f Dockerfile.backend -t confession-backend .
+# =============================================
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Only copy the files the backend actually needs
+COPY package.json .
+RUN npm install
+
+COPY server.js .
+COPY db.js .
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]

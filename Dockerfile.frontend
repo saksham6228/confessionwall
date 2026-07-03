@@ -1,0 +1,12 @@
+# =============================================
+#   Dockerfile.frontend
+#   Build with: docker build -f Dockerfile.frontend -t confession-frontend .
+# =============================================
+FROM nginx:alpine
+
+# Only copy the files the frontend actually needs
+COPY index.html /usr/share/nginx/html/index.html
+COPY style.css  /usr/share/nginx/html/style.css
+COPY script.js  /usr/share/nginx/html/script.js
+
+EXPOSE 80

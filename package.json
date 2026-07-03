@@ -1,0 +1,14 @@
+{
+  "name": "confession-wall-backend",
+  "version": "1.0.0",
+  "description": "Backend API for the Campus Confession Wall app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mysql2": "^3.10.0",
+    "cors": "^2.8.5"
+  }
+}

@@ -1,0 +1,13 @@
+# =============================================
+#   Dockerfile.database
+#   Build with: docker build -f Dockerfile.database -t confession-db .
+# =============================================
+FROM mysql:8.0
+
+ENV MYSQL_ROOT_PASSWORD=rootpassword
+ENV MYSQL_DATABASE=confession_wall
+
+# Only copy the file the database actually needs
+COPY init.sql /docker-entrypoint-initdb.d/init.sql
+
+EXPOSE 3306
