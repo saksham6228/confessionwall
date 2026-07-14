@@ -1,15 +1,10 @@
 // =============================================
 //   Jenkinsfile — Confession Wall CI/CD Pipeline
+//   (using three separate Dockerfiles, no docker-compose)
 // =============================================
-// This file tells Jenkins exactly what to do, step by step,
-// every time it runs. Jenkins reads this automatically once
-// you point a "Pipeline" job at your GitHub repo.
 
 pipeline {
 
-    // "agent any" means: run this on any available Jenkins machine/server.
-    // Since your Jenkins is likely running on the same AWS server you've
-    // been using, this will run right there.
     agent any
 
     stages {
@@ -17,8 +12,6 @@ pipeline {
         // ---------------------------------------------
         // STAGE 1: Checkout code from GitHub
         // ---------------------------------------------
-        // Jenkins does this automatically when connected to a GitHub
-        // repo, but it's good practice to show it explicitly as a stage.
         stage('Checkout') {
             steps {
                 echo 'Pulling latest code from GitHub...'
@@ -27,56 +20,73 @@ pipeline {
         }
 
         // ---------------------------------------------
-        // STAGE 2: Stop any old running containers
+        // STAGE 2: Clean up any old containers/network
         // ---------------------------------------------
-        // This prevents port conflicts if a previous build is still running.
-        stage('Stop Old Containers') {
+        stage('Cleanup') {
             steps {
-                echo 'Stopping any previously running containers...'
-                sh 'docker compose down || true'
-                // "|| true" means: don't fail the pipeline if there was
-                // nothing running to stop (first-ever run, for example).
+                echo 'Removing old containers and network if they exist...'
+                sh 'docker rm -f confession-db confession-backend confession-frontend || true'
+                sh 'docker network rm confession-net || true'
             }
         }
 
         // ---------------------------------------------
-        // STAGE 3: Build all three Docker images
+        // STAGE 3: Create the shared network
         // ---------------------------------------------
-        stage('Build') {
+        stage('Create Network') {
             steps {
-                echo 'Building frontend, backend, and database images...'
-                sh 'docker compose build'
+                echo 'Creating Docker network...'
+                sh 'docker network create confession-net'
             }
         }
 
         // ---------------------------------------------
-        // STAGE 4: Deploy — start all three containers
+        // STAGE 4: Build and run the database
         // ---------------------------------------------
-        stage('Deploy') {
+        stage('Database') {
             steps {
-                echo 'Starting all containers...'
-                sh 'docker compose up -d'
+                echo 'Building and starting database container...'
+                sh 'docker build -f Dockerfile.database -t confession-db .'
+                sh 'docker run -d --name confession-db --network confession-net -p 3306:3306 confession-db'
+                echo 'Waiting for MySQL to initialize...'
+                sh 'sleep 20'
             }
         }
 
         // ---------------------------------------------
-        // STAGE 5: Verify the deployment worked
+        // STAGE 5: Build and run the backend
+        // ---------------------------------------------
+        stage('Backend') {
+            steps {
+                echo 'Building and starting backend container...'
+                sh 'docker build -f Dockerfile.backend -t confession-backend .'
+                sh 'docker run -d --name confession-backend --network confession-net -p 3000:3000 -e DB_HOST=confession-db confession-backend'
+            }
+        }
+
+        // ---------------------------------------------
+        // STAGE 6: Build and run the frontend
+        // ---------------------------------------------
+        stage('Frontend') {
+            steps {
+                echo 'Building and starting frontend container...'
+                sh 'docker build -f Dockerfile.frontend -t confession-frontend .'
+                sh 'docker run -d --name confession-frontend -p 8080:80 confession-frontend'
+            }
+        }
+
+        // ---------------------------------------------
+        // STAGE 7: Verify the deployment worked
         // ---------------------------------------------
         stage('Health Check') {
             steps {
-                echo 'Waiting for services to be ready...'
-                sh 'sleep 15'
                 echo 'Checking backend health...'
+                sh 'sleep 5'
                 sh 'curl -f http://localhost:3000/api/health || exit 1'
             }
         }
     }
 
-    // ---------------------------------------------
-    // POST-BUILD ACTIONS
-    // ---------------------------------------------
-    // These run regardless of whether the pipeline succeeded or failed,
-    // giving you a clear message either way.
     post {
         success {
             echo 'Pipeline completed successfully! Confession Wall is live.'
